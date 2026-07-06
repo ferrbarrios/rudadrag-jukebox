@@ -5,12 +5,11 @@ from googleapiclient.discovery import build
 import re
 
 # --- CONFIGURACIÓN DE APIS ---
-# Mantenemos tus variables fijas tal como las pasaste
 SUPABASE_URL = "https://iolidngaqcjtumkcrtcx.supabase.co/"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbGlkbmdhcWNqdHVta2NydGN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNTcwODUsImV4cCI6MjA5ODkzMzA4NX0.8RQU3yZvhjoZXQh6uZkDfcmG7y7bp7nJE8O7WjdoAtI"
 YOUTUBE_API_KEY = "AIzaSyAQI05z55pZe3ltvltkxq2lbLCW8toELuc"
 
-# Inicializar clientes (Forzando explícitamente el esquema public)
+# Inicializar clientes
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase.postgrest.schema("public")
 
@@ -28,16 +27,14 @@ if not st.session_state.correo_usuario:
     st.subheader("🔑 Ingresá para votar o proponer")
     correo_input = st.text_input("Introduce tu correo electrónico:")
     
-    # Validación simple de formato de email
     if st.button("Ingresar"):
         if re.match(r"[^@]+@[^@]+\.[^@]+", correo_input):
             st.session_state.correo_usuario = correo_input.lower().strip()
             st.rerun()
         else:
             st.error("Por favor, ingresá un correo electrónico válido.")
-    st.stop() # Frena la app acá si no se identificó
+    st.stop()
 
-# Si ya ingresó, mostrar saludo y botón de salir
 st.sidebar.write(f"Conectado como: **{st.session_state.correo_usuario}**")
 if st.sidebar.button("Cerrar Sesión"):
     st.session_state.correo_usuario = ""
@@ -67,14 +64,39 @@ def buscar_en_youtube(query):
         return []
 
 # --- INTERFAZ PRINCIPAL (PESTAÑAS) ---
-tab1, tab2 = st.tabs(["🔥 Lista de Votación", "🔍 Proponer Tema"])
+# Estilo CSS inyectado para agrandar las etiquetas de las pestañas
+st.markdown("""
+    <style>
+    button[data-baseweb="tab"] p {
+        font-size: 20px !important;
+        font-weight: bold !important;
+    }
+    </style>
+""", unsafe_unsafe_changes=True)
+
+# Las pestañas se declaran al revés para que "Proponer Tema" sea el índice 0 (por defecto)
+tab2, tab1 = st.tabs(["🔍 Proponer Tema", "🔥 Lista de Votación"])
 
 with tab2:
     st.subheader("Buscar y añadir canciones")
     busqueda = st.text_input("¿Qué canción querés buscar?")
-    categoria_sel = st.selectbox("Categoría del tema:", ["Pop/Diva", "Reggaeton/RKT", "Electrónica", "Clásicos Bizarros"])
 
     if busqueda:
+        # Primero buscamos coincidencias parciales en Supabase para ahorrar cuota de API
+        try:
+            busqueda_db = supabase.table("canciones_votadas").select("*").ilike("titulo", f"%{busqueda}%").execute()
+            existentes = busqueda_db.data
+        except Exception:
+            existentes = []
+
+        if existentes:
+            st.warning("⚠️ ¡Este tema (o uno muy similar) ya fue propuesto! Podés ir a buscarlo y votarlo directamente en la pestaña de 'Lista de Votación'.")
+            for ex in existentes:
+                st.markdown(f"• **[{ex['titulo']}]({ex['youtube_url']})** — ({ex['votos_count']} 👍)")
+            st.markdown("---")
+
+        # De todas formas ofrecemos los resultados de YouTube por si quiere un video diferente o no es el mismo
+        st.write("Resultados directos de YouTube:")
         items = buscar_en_youtube(busqueda)
         for item in items:
             col_thumb, col_txt, col_btn = st.columns([1, 3, 1])
@@ -85,70 +107,65 @@ with tab2:
             with col_btn:
                 if st.button("Proponer", key=f"prop_{item['id']}"):
                     try:
-                        # 1. Usar upsert para evitar errores de clave primaria si la canción ya existe
+                        # Insertamos sin el campo categoría
                         supabase.table("canciones_votadas").upsert({
                             "youtube_id": item["id"],
                             "titulo": item["titulo"],
                             "youtube_url": item["url"],
-                            "categoria": categoria_sel
+                            "categoria": "General"
                         }, on_conflict="youtube_id").execute()
                         
-                        # 2. Registrar el voto inicial del creador
                         supabase.table("registro_votos").insert({
                             "correo": st.session_state.correo_usuario,
                             "youtube_id": item["id"]
                         }).execute()
                         st.success("¡Tema propuesto y añadido a la lista!")
                     except Exception:
-                        st.info("Este tema ya estaba propuesto o ya le diste tu voto. ¡Revisá la lista!")
+                        st.info("Ya apoyaste este tema o ya figura en la lista de votación.")
 
 with tab1:
     st.subheader("Ranking de canciones")
     
-    # Filtro opcional por categoría
-    filtro_categoria = st.selectbox("Filtrar por estilo:", ["Todos", "Pop/Diva", "Reggaeton/RKT", "Electrónica", "Clásicos Bizarros"])
+    # Cuadro de búsqueda exclusivo sobre Supabase para la lista de temas votados
+    buscar_interno = st.text_input("🔍 Buscar entre los temas ya votados:", placeholder="Escribí parte del título o artista...")
     
     canciones = []
     
-    # Control seguro de consultas para capturar fallos estructurales de Supabase
     try:
         query_db = supabase.table("canciones_votadas").select("*")
-        if filtro_categoria != "Todos":
-            query_db = query_db.eq("categoria", filtro_categoria)
         
-        # Orden estricto: Más votados arriba
+        # Filtro de texto dinámico en Supabase si el usuario escribe algo
+        if buscar_interno:
+            query_db = query_db.ilike("titulo", f"%{buscar_interno}%")
+            
         response = query_db.order("votos_count", desc=True).execute()
         canciones = response.data
     except APIError as e:
         st.error(f"Error de base de datos: {e.message}")
-        st.info("Asegurate de haber ejecutado los scripts SQL de creación y desactivado RLS.")
 
     if not canciones:
-        st.info("Todavía no hay canciones propuestas en esta categoría.")
+        st.info("No se encontraron canciones en la lista de votación.")
     else:
         for cancion in canciones:
             y_id = cancion["youtube_id"]
             titulo = cancion["titulo"]
             url = cancion["youtube_url"]
             votos = cancion["votos_count"]
-            cat = cancion["categoria"]
             
             col_info, col_vote = st.columns([4, 1])
             
             with col_info:
                 st.markdown(f"### {votos} 👍 | [{titulo}]({url})")
-                st.caption(f"Categoría: {cat} | ID: {y_id}")
+                st.caption(f"ID: {y_id}")
             
             with col_vote:
                 if st.button("Votar", key=f"vote_{y_id}"):
                     try:
-                        # Intentar registrar el voto único por correo
                         supabase.table("registro_votos").insert({
                             "correo": st.session_state.correo_usuario,
                             "youtube_id": y_id
                         }).execute()
                         
-                        # Si pasa el registro, incrementamos el contador
                         nuevo_total = votos + 1
                         supabase.table("canciones_votadas").update({"votos_count": nuevo_total}).eq("youtube_id", y_id).execute()
                         st.success("¡Voto registrado!")
