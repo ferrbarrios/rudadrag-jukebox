@@ -6,7 +6,7 @@ import re
 
 # --- CONFIGURACIÓN DE APIS ---
 # Mantenemos tus variables fijas tal como las pasaste
-SUPABASE_URL = "https://iolidngaqcjtumkcrtcx.supabase.co/rest/v1/"
+SUPABASE_URL = "https://iolidngaqcjtumkcrtcx.supabase.co/"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbGlkbmdhcWNqdHVta2NydGN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNTcwODUsImV4cCI6MjA5ODkzMzA4NX0.8RQU3yZvhjoZXQh6uZkDfcmG7y7bp7nJE8O7WjdoAtI"
 YOUTUBE_API_KEY = "AIzaSyAQI05z55pZe3ltvltkxq2lbLCW8toELuc"
 
