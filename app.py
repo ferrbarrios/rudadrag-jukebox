@@ -65,79 +65,90 @@ def buscar_en_youtube(query):
 
 # --- INTERFAZ PRINCIPAL (ESTILO Y DISEÑO STITCH) ---
 
-# Inyección de CSS para transformar el diseño de la app
+# --- INTERFAZ PRINCIPAL (ESTILO Y DISEÑO STITCH FORZADO) ---
+
 st.markdown("""
     <style>
-    /* Fondo general de la app oscuro y tipografía limpia */
-    .stApp {
-        background-color: #0d0d13;
-        color: #f3f4f6;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    /* 1. Forzar el fondo oscuro en toda la aplicación */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #0d0d13 !important;
+        color: #f3f4f6 !important;
     }
     
-    /* Personalización gigante y llamativa de las pestañas */
+    /* 2. Estilizar las pestañas (Tabs) */
     button[data-baseweb="tab"] {
         background-color: #161622 !important;
         border: 1px solid #232336 !important;
         border-radius: 12px !important;
-        padding: 12px 24px !important;
-        margin-right: 10px !important;
-        transition: all 0.3s ease;
+        padding: 10px 20px !important;
+        margin-right: 12px !important;
+        transition: all 0.3s ease-in-out;
     }
     
-    /* Efecto Hover en las pestañas */
-    button[data-baseweb="tab"]:hover {
-        border-color: #ff007f !important;
-        box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
-    }
-    
-    /* Pestaña activa (Estilo Drag/Neon) */
+    /* Pestaña activa (Rosa/Púrpura Neón) */
     button[data-baseweb="tab"][aria-selected="true"] {
         background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%) !important;
         border: none !important;
+        box-shadow: 0 0 15px rgba(255, 0, 127, 0.4) !important;
     }
     
+    /* Texto de las pestañas */
     button[data-baseweb="tab"] p {
         font-size: 22px !important;
         font-weight: 800 !important;
-        letter-spacing: 0.5px;
         color: #ffffff !important;
     }
     
-    /* Tarjetas de canciones (Cards con relieve y bordes suaves) */
+    /* 3. Transformar los títulos y textos */
+    h1, h2, h3, p, span, label {
+        color: #ffffff !important;
+    }
+    
+    /* 4. Tarjetas de canciones (Cards) */
+    div[data-testid="stVerticalBlock"] > div:has(div.song-card) {
+        background: transparent !important;
+    }
+    
     .song-card {
-        background-color: #161622;
-        border: 1px solid #232336;
-        border-radius: 16px;
-        padding: 16px;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        background-color: #161622 !important;
+        border: 1px solid #232336 !important;
+        border-radius: 16px !important;
+        padding: 20px !important;
+        margin-top: 10px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+        transition: all 0.2s ease-in-out;
     }
     
     .song-card:hover {
+        border-color: #ff007f !important;
         transform: translateY(-2px);
-        border-color: #7928ca;
+        box-shadow: 0 6px 20px rgba(121, 40, 202, 0.2) !important;
     }
     
-    /* Entradas de texto e inputs estilizados */
-    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+    /* 5. Estilizar los inputs y buscadores */
+    input {
         background-color: #161622 !important;
         color: #ffffff !important;
         border: 1px solid #232336 !important;
         border-radius: 10px !important;
     }
     
-    .stTextInput input:focus {
-        border-color: #ff007f !important;
-        box-shadow: 0 0 0 1px #ff007f !important;
+    /* 6. Botones de acción principales */
+    div[data-testid="stButton"] button {
+        background: linear-gradient(135deg, #7928ca 0%, #ff007f 100%) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        padding: 10px 24px !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
     }
     
-    /* Customización de los botones de votación */
-    .stButton button {
-        border-radius: 10px !important;
-        font-weight: bold !important;
-        transition: all 0.2s ease !important;
+    div[data-testid="stButton"] button:hover {
+        background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%) !important;
+        box-shadow: 0 0 15px rgba(255, 0, 127, 0.5) !important;
     }
     </style>
 """, unsafe_allow_html=True)
