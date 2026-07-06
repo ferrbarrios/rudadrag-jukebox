@@ -72,7 +72,7 @@ st.markdown("""
         font-weight: bold !important;
     }
     </style>
-""", unsafe_unsafe_changes=True)
+""", unsafe_allow_html=True)
 
 # Las pestañas se declaran al revés para que "Proponer Tema" sea el índice 0 (por defecto)
 tab2, tab1 = st.tabs(["🔍 Proponer Tema", "🔥 Lista de Votación"])
