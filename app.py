@@ -63,26 +63,93 @@ def buscar_en_youtube(query):
         st.error("Error al conectar con la API de YouTube.")
         return []
 
-# --- INTERFAZ PRINCIPAL (PESTAÑAS) ---
-# Estilo CSS inyectado para agrandar las etiquetas de las pestañas
+# --- INTERFAZ PRINCIPAL (ESTILO Y DISEÑO STITCH) ---
+
+# Inyección de CSS para transformar el diseño de la app
 st.markdown("""
     <style>
+    /* Fondo general de la app oscuro y tipografía limpia */
+    .stApp {
+        background-color: #0d0d13;
+        color: #f3f4f6;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* Personalización gigante y llamativa de las pestañas */
+    button[data-baseweb="tab"] {
+        background-color: #161622 !important;
+        border: 1px solid #232336 !important;
+        border-radius: 12px !important;
+        padding: 12px 24px !important;
+        margin-right: 10px !important;
+        transition: all 0.3s ease;
+    }
+    
+    /* Efecto Hover en las pestañas */
+    button[data-baseweb="tab"]:hover {
+        border-color: #ff007f !important;
+        box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+    }
+    
+    /* Pestaña activa (Estilo Drag/Neon) */
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%) !important;
+        border: none !important;
+    }
+    
     button[data-baseweb="tab"] p {
-        font-size: 20px !important;
+        font-size: 22px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px;
+        color: #ffffff !important;
+    }
+    
+    /* Tarjetas de canciones (Cards con relieve y bordes suaves) */
+    .song-card {
+        background-color: #161622;
+        border: 1px solid #232336;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    
+    .song-card:hover {
+        transform: translateY(-2px);
+        border-color: #7928ca;
+    }
+    
+    /* Entradas de texto e inputs estilizados */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #161622 !important;
+        color: #ffffff !important;
+        border: 1px solid #232336 !important;
+        border-radius: 10px !important;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #ff007f !important;
+        box-shadow: 0 0 0 1px #ff007f !important;
+    }
+    
+    /* Customización de los botones de votación */
+    .stButton button {
+        border-radius: 10px !important;
         font-weight: bold !important;
+        transition: all 0.2s ease !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Las pestañas se declaran al revés para que "Proponer Tema" sea el índice 0 (por defecto)
+# Declaración de pestañas (Proponer primero por defecto)
 tab2, tab1 = st.tabs(["🔍 Proponer Tema", "🔥 Lista de Votación"])
 
 with tab2:
-    st.subheader("Buscar y añadir canciones")
-    busqueda = st.text_input("¿Qué canción querés buscar?")
+    st.markdown("<h2 style='color: #ff007f; font-weight: 800;'>Buscar y añadir canciones</h2>", unsafe_allow_html=True)
+    busqueda = st.text_input("¿Qué canción querés buscar?", key="search_yt_input")
 
     if busqueda:
-        # Primero buscamos coincidencias parciales en Supabase para ahorrar cuota de API
         try:
             busqueda_db = supabase.table("canciones_votadas").select("*").ilike("titulo", f"%{busqueda}%").execute()
             existentes = busqueda_db.data
@@ -90,51 +157,58 @@ with tab2:
             existentes = []
 
         if existentes:
-            st.warning("⚠️ ¡Este tema (o uno muy similar) ya fue propuesto! Podés ir a buscarlo y votarlo directamente en la pestaña de 'Lista de Votación'.")
+            st.markdown("""
+                <div style='background-color: rgba(255, 165, 0, 0.1); border-left: 4px solid #ffa500; padding: 12px; border-radius: 8px; margin-bottom: 15px;'>
+                    <strong style='color: #ffa500;'>⚠️ ¡Este tema ya fue propuesto!</strong><br>
+                    Podés ir a buscarlo y votarlo directamente en la pestaña de 'Lista de Votación' para sumarle puntos.
+                </div>
+            """, unsafe_allow_html=True)
             for ex in existentes:
                 st.markdown(f"• **[{ex['titulo']}]({ex['youtube_url']})** — ({ex['votos_count']} 👍)")
             st.markdown("---")
 
-        # De todas formas ofrecemos los resultados de YouTube por si quiere un video diferente o no es el mismo
         st.write("Resultados directos de YouTube:")
         items = buscar_en_youtube(busqueda)
         for item in items:
-            col_thumb, col_txt, col_btn = st.columns([1, 3, 1])
-            with col_thumb:
-                st.image(item["thumbnail"])
-            with col_txt:
-                st.markdown(f"**[{item['titulo']}]({item['url']})**")
-            with col_btn:
-                if st.button("Proponer", key=f"prop_{item['id']}"):
-                    try:
-                        # Insertamos sin el campo categoría
-                        supabase.table("canciones_votadas").upsert({
-                            "youtube_id": item["id"],
-                            "titulo": item["titulo"],
-                            "youtube_url": item["url"],
-                            "categoria": "General"
-                        }, on_conflict="youtube_id").execute()
-                        
-                        supabase.table("registro_votos").insert({
-                            "correo": st.session_state.correo_usuario,
-                            "youtube_id": item["id"]
-                        }).execute()
-                        st.success("¡Tema propuesto y añadido a la lista!")
-                    except Exception:
-                        st.info("Ya apoyaste este tema o ya figura en la lista de votación.")
+            # Contenedor visual tipo Card para los resultados
+            st.markdown(f"""
+                <div class="song-card">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <img src="{item['thumbnail']}" style="border-radius: 8px; width: 90px;">
+                        <div style="flex-grow: 1;">
+                            <a href="{item['url']}" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: none; font-size: 16px;">{item['titulo']}</a>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Botón nativo de Streamlit posicionado justo debajo para mantener la acción
+            if st.button("✨ Proponer este tema", key=f"prop_{item['id']}", use_container_width=True):
+                try:
+                    supabase.table("canciones_votadas").upsert({
+                        "youtube_id": item["id"],
+                        "titulo": item["titulo"],
+                        "youtube_url": item["url"],
+                        "categoria": "General"
+                    }, on_conflict="youtube_id").execute()
+                    
+                    supabase.table("registro_votos").insert({
+                        "correo": st.session_state.correo_usuario,
+                        "youtube_id": item["id"]
+                    }).execute()
+                    st.success("¡Tema propuesto con éxito!")
+                    st.rerun()
+                except Exception:
+                    st.info("Ya apoyaste este tema o ya figura en la lista de votación.")
 
 with tab1:
-    st.subheader("Ranking de canciones")
+    st.markdown("<h2 style='color: #7928ca; font-weight: 800;'>Ranking de canciones</h2>", unsafe_allow_html=True)
     
-    # Cuadro de búsqueda exclusivo sobre Supabase para la lista de temas votados
-    buscar_interno = st.text_input("🔍 Buscar entre los temas ya votados:", placeholder="Escribí parte del título o artista...")
+    buscar_interno = st.text_input("🔍 Buscar entre los temas ya votados:", placeholder="Escribí parte del título o artista...", key="search_db_input")
     
     canciones = []
-    
     try:
         query_db = supabase.table("canciones_votadas").select("*")
-        
-        # Filtro de texto dinámico en Supabase si el usuario escribe algo
         if buscar_interno:
             query_db = query_db.ilike("titulo", f"%{buscar_interno}%")
             
@@ -152,24 +226,32 @@ with tab1:
             url = cancion["youtube_url"]
             votos = cancion["votos_count"]
             
-            col_info, col_vote = st.columns([4, 1])
+            # Renderizado de la tarjeta con colores de marca definidos en el proyecto
+            st.markdown(f"""
+                <div class="song-card" style="border-left: 5px solid #ff007f;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="background-color: #ff007f; color: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 14px; margin-right: 10px;">
+                                {votos} 👍
+                            </span>
+                            <a href="{url}" target="_blank" style="color: #f3f4f6; font-weight: 600; text-decoration: none; font-size: 18px;">{titulo}</a>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
             
-            with col_info:
-                st.markdown(f"### {votos} 👍 | [{titulo}]({url})")
-                st.caption(f"ID: {y_id}")
-            
-            with col_vote:
-                if st.button("Votar", key=f"vote_{y_id}"):
-                    try:
-                        supabase.table("registro_votos").insert({
-                            "correo": st.session_state.correo_usuario,
-                            "youtube_id": y_id
-                        }).execute()
-                        
-                        nuevo_total = votos + 1
-                        supabase.table("canciones_votadas").update({"votos_count": nuevo_total}).eq("youtube_id", y_id).execute()
-                        st.success("¡Voto registrado!")
-                        st.rerun()
-                    except Exception:
-                        st.error("Ya votaste por esta canción.")
+            # Botón de votación alineado de forma limpia debajo de la tarjeta
+            if st.button(f"👍 Dar mi voto", key=f"vote_{y_id}", use_container_width=True):
+                try:
+                    supabase.table("registro_votos").insert({
+                        "correo": st.session_state.correo_usuario,
+                        "youtube_id": y_id
+                    }).execute()
+                    
+                    nuevo_total = votos + 1
+                    supabase.table("canciones_votadas").update({"votos_count": nuevo_total}).eq("youtube_id", y_id).execute()
+                    st.success("¡Voto registrado!")
+                    st.rerun()
+                except Exception:
+                    st.error("Ya votaste por esta canción.")
             st.markdown("---")
